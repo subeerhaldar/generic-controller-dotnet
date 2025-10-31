@@ -1,7 +1,7 @@
 using GenericController.Controllers;
 using GenericController.DTOs;
 using GenericController.Models;
-using GenericController.Services;
+using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GenericController.Controllers
@@ -10,9 +10,9 @@ namespace GenericController.Controllers
     public class MstCommercialChecklistController : GenericMasterController<MstCommercialChecklist, MstCommercialChecklistDto>
     {
         public MstCommercialChecklistController(
-            IGenericService<MstCommercialChecklist, MstCommercialChecklistDto> service,
+            IMediator mediator,
             ILogger<MstCommercialChecklistController> logger)
-            : base(service, logger)
+            : base(mediator, logger)
         {
         }
 

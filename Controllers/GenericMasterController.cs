@@ -1,4 +1,6 @@
-using GenericController.Services;
+using GenericController.CQRS.Commands;
+using GenericController.CQRS.Queries;
+using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using System.Linq.Expressions;
@@ -9,12 +11,12 @@ namespace GenericController.Controllers
     [Route("api/[controller]")]
     public class GenericMasterController<T, TDto> : ControllerBase where T : class where TDto : class
     {
-        protected readonly IGenericService<T, TDto> _service;
+        protected readonly IMediator _mediator;
         protected readonly ILogger<GenericMasterController<T, TDto>> _logger;
 
-        public GenericMasterController(IGenericService<T, TDto> service, ILogger<GenericMasterController<T, TDto>> logger)
+        public GenericMasterController(IMediator mediator, ILogger<GenericMasterController<T, TDto>> logger)
         {
-            _service = service;
+            _mediator = mediator;
             _logger = logger;
         }
 
@@ -23,7 +25,8 @@ namespace GenericController.Controllers
         {
             try
             {
-                var items = await _service.GetAllAsync();
+                var query = new GetAllQuery<TDto>();
+                var items = await _mediator.Send(query);
                 return Ok(items);
             }
             catch (Exception ex)
@@ -38,7 +41,8 @@ namespace GenericController.Controllers
         {
             try
             {
-                var item = await _service.GetByIdAsync(id);
+                var query = new GetByIdQuery<TDto>(id);
+                var item = await _mediator.Send(query);
                 if (item == null)
                 {
                     return NotFound();
@@ -62,7 +66,8 @@ namespace GenericController.Controllers
                     return BadRequest(ModelState);
                 }
 
-                var createdItem = await _service.AddAsync(dto);
+                var command = new CreateCommand<T, TDto>(dto);
+                var createdItem = await _mediator.Send(command);
                 return CreatedAtAction(nameof(GetById), new { id = GetIdFromDto(createdItem) }, createdItem);
             }
             catch (Exception ex)
@@ -82,7 +87,8 @@ namespace GenericController.Controllers
                     return BadRequest(ModelState);
                 }
 
-                await _service.UpdateAsync(id, dto);
+                var command = new UpdateCommand<T, TDto>(id, dto);
+                await _mediator.Send(command);
                 return NoContent();
             }
             catch (KeyNotFoundException)
@@ -101,7 +107,8 @@ namespace GenericController.Controllers
         {
             try
             {
-                await _service.DeleteAsync(id);
+                var command = new DeleteCommand<T>(id);
+                await _mediator.Send(command);
                 return NoContent();
             }
             catch (Exception ex)
@@ -116,7 +123,8 @@ namespace GenericController.Controllers
         {
             try
             {
-                await _service.SoftDeleteAsync(id);
+                var command = new SoftDeleteCommand<T>(id);
+                await _mediator.Send(command);
                 return NoContent();
             }
             catch (Exception ex)
@@ -131,15 +139,8 @@ namespace GenericController.Controllers
         {
             try
             {
-                Expression<Func<T, bool>>? filterExpression = null;
-                if (!string.IsNullOrEmpty(filter))
-                {
-                    // Note: This is a simplified filter implementation. In a real-world scenario,
-                    // you might want to use a more sophisticated filtering mechanism.
-                    filterExpression = CreateFilterExpression(filter);
-                }
-
-                var result = await _service.GetPagedAsync(pageNumber, pageSize, filterExpression);
+                var query = new GetPagedQuery<TDto>(pageNumber, pageSize, filter);
+                var result = await _mediator.Send(query);
                 return Ok(new
                 {
                     Items = result.Items,
